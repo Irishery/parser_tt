@@ -46,12 +46,14 @@ function logCategoryHeader(categoryUrl) {
     for (const category of categories) {
         logCategoryHeader(category.url);
 
-        // у хинкалей одинаковое название, но разный тип приготовления - нужно различать по категориям
+        // есть несколько товаров с одинаковым названием, но разным типом приготовления - им ставлю тэг в виде категории
         let categoryType = '';
         if (category.url.includes('hinkali-zharenye')) {
             categoryType = 'zharen';
         } else if (category.url.includes('hinkali-otvarnye')) {
             categoryType = 'otvar';
+        } else if (category.url.includes('detey')) {
+            categoryType = 'deti';
         }
 
         try {
@@ -75,6 +77,8 @@ function logCategoryHeader(categoryUrl) {
                         name += ' (жареные)';
                     } else if (categoryType === 'otvar') {
                         name += ' (отварные)';
+                    } else if (categoryType === 'deti') {
+                        name += ' (детскоe)';
                     }
             
                     const priceText = priceElement.textContent.trim();
