@@ -1,0 +1,24 @@
+{
+  "name": "parser_tt",
+  "version": "1.0.0",
+  "description": "",
+  "main": "parser.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://@github.com/Irishery/parser_tt.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Irishery/parser_tt/issues"
+  },
+  "homepage": "https://github.com/Irishery/parser_tt#readme",
+  "dependencies": {
+    "fs-extra": "^11.3.0",
+    "puppeteer": "^24.9.0"
+  }
+}
