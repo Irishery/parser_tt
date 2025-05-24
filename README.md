@@ -15,8 +15,8 @@
 
 1. Клонируйте репозиторий:
    ```bash
-   git clone https://github.com/your-username/djari-parser.git 
-   cd djari-parser
+   git clone https://github.com/Irishery/parser_tt.git
+   cd parser_tt
 2. Установите зависимости:
     ```bash
     npm install
