@@ -3,7 +3,6 @@ const puppeteer = require('puppeteer');
 
 const categories = [
   { url: 'https://djari.ru/kirov/hachapuri' },
-  { url: 'https://djari.ru/kirov/popular' },
   { url: 'https://djari.ru/kirov/hinkali-otvarnye' },
   { url: 'https://djari.ru/kirov/hinkali-zharenye' },
   { url: 'https://djari.ru/kirov/sousy' },
