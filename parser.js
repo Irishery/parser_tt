@@ -1,20 +1,6 @@
 const fs = require('fs-extra');
 const puppeteer = require('puppeteer');
 
-const categories = [
-  { url: 'https://djari.ru/kirov/hachapuri' },
-  { url: 'https://djari.ru/kirov/hinkali-otvarnye' },
-  { url: 'https://djari.ru/kirov/hinkali-zharenye' },
-  { url: 'https://djari.ru/kirov/sousy' },
-  { url: 'https://djari.ru/kirov/garniry' },
-  { url: 'https://djari.ru/kirov/salaty' },
-  { url: 'https://djari.ru/kirov/goryachie-zakuski' },
-  { url: 'https://djari.ru/kirov/supy' },
-  { url: 'https://djari.ru/kirov/goryachie-blyuda' },
-  { url: 'https://djari.ru/kirov/deserty' },
-  { url: 'https://djari.ru/kirov/dlya-detey' },
-  { url: 'https://djari.ru/kirov/napitki' },
-];
 
 // чтобы логи красивые были
 function logCategoryHeader(categoryUrl) {
@@ -35,20 +21,69 @@ function logCategoryHeader(categoryUrl) {
     console.log(`${leftPad}${fullText}${rightPad}`);
 }
 
+// определение типа категории
 function getCategoryType(url) {
-    if (url.includes('hinkali-zharenye')) return 'жареные';
-    if (url.includes('hinkali-otvarnye')) return 'отварные';
-    if (url.includes('dlya-detey')) return 'детское';
-    if (url.includes('hachapuri')) return 'хачапури';
-    if (url.includes('sousy')) return 'соусы';
-    if (url.includes('garniry')) return 'гарниры';
-    if (url.includes('salaty')) return 'салаты';
-    if (url.includes('goryachie-zakuski')) return 'горячие закуски';
-    if (url.includes('supy')) return 'супы';
-    if (url.includes('goryachie-blyuda')) return 'горячие блюда';
-    if (url.includes('deserty')) return 'десерты';
-    if (url.includes('napitki')) return 'напитки';
-    
+    const match = url.match(/([^/]+)$/);
+    if (!match || !match[1]) return null;
+
+    const slug = match[1]
+        .replace(/-/g, ' ')
+        .replace(/\b\w/g, c => c.toUpperCase());
+
+    return slug;
+}
+
+// парсинг категорий с главной страницы
+async function getCategories(page) {
+    await page.goto('https://djari.ru/kirov', { waitUntil: 'networkidle2' });
+
+    console.log('Собираем категории с главной страницы...');
+
+    const categoryUrls = await page.evaluate(() => {
+        const links = [];
+        const anchors = document.querySelectorAll('a.filter-category__item');
+
+        anchors.forEach(a => {
+            const href = a.getAttribute('href');
+            if (href && href.startsWith('/kirov/') && !href.includes("popular")) {
+                links.push('https://djari.ru' + href);
+            }
+        });
+
+        return links;
+    });
+
+    console.log(`Найдено категорий: ${categoryUrls.length}`);
+    console.log(categoryUrls.join('\n'));
+
+    return categoryUrls;
+}
+
+// парсинг товаров со страницы
+async function parseProductsFromPage(page) {
+    return await page.evaluate(() => {
+        const items = document.querySelectorAll('.production__item');
+        const products = [];
+
+        items.forEach((item) => {
+            const nameElement = item.querySelector('.production__item-title');
+            const priceElement = item.querySelector('.price-value');
+
+            if (!nameElement || !priceElement) return;
+
+            const name = nameElement.textContent.trim();
+            const priceText = priceElement.textContent.trim();
+
+            const priceMatch = priceText.match(/\d+/);
+            const price = priceMatch ? parseInt(priceMatch[0], 10) : null;
+
+            if (!price) return;
+
+            products.push({ name, price });
+        });
+
+        return products;
+    });
 }
 
 (async () => {
@@ -56,42 +91,22 @@ function getCategoryType(url) {
     const page = await browser.newPage();
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
 
+    categories = await getCategories(page);
+
     const seenNames = new Set();
     let allProducts = [];
 
-    for (const category of categories) {
-        const url = category.url.trim();
-        logCategoryHeader(url);
+    for (const url of categories) {
+        const trimmedUrl = url.trim();
+        const categoryType = getCategoryType(trimmedUrl);
 
-        const categoryType = getCategoryType(url);
+        logCategoryHeader(trimmedUrl);
 
         try {
-            await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+            await page.goto(trimmedUrl, { waitUntil: 'networkidle2', timeout: 60000 });
             await page.waitForSelector('.production__item', { timeout: 15000 });
 
-            const products = await page.evaluate(() => {
-                const items = document.querySelectorAll('.production__item');
-                const products = [];
-
-                items.forEach((item) => {
-                    const nameElement = item.querySelector('.production__item-title');
-                    const priceElement = item.querySelector('.price-value');
-
-                    if (!nameElement || !priceElement) return;
-
-                    const name = nameElement.textContent.trim();
-                    const priceText = priceElement.textContent.trim();
-
-                    const priceMatch = priceText.match(/\d+/);
-                    const price = priceMatch ? parseInt(priceMatch[0], 10) : null;
-
-                    if (!price) return;
-
-                    products.push({ name, price });
-                });
-
-                return products;
-            });
+            const products = await parseProductsFromPage(page);
 
             for (const product of products) {
                 const baseName = product.name;
@@ -115,7 +130,7 @@ function getCategoryType(url) {
             console.log(`Уникальных товаров всего: ${allProducts.length}`);
 
         } catch (e) {
-            console.error(`Ошибка при парсинге категории "${url}":`, e.message);
+            console.error(`Ошибка при парсинге категории "${trimmedUrl}":`, e.message);
         }
     }
 
