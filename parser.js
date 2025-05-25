@@ -113,17 +113,14 @@ async function parseProductsFromPage(page) {
 
                     const newName = `${baseName} (${categoryType})`;
 
-                    if (seenNames.has(baseName)) {
+                    if (seenNames.has(baseName) && !seenNames.has(newName)) {
                         seenNames.add(newName);
                         allProducts.push({ name: newName, price: product.price });
-                    }
-
-                 else {
-                    if (!seenNames.has(baseName)) {
+                    } else if (!seenNames.has(baseName)) {
                         seenNames.add(baseName);
                         allProducts.push(product);
                     }
-                }
+                
             }
 
             console.log(`Найдено товаров на этой странице: ${products.length}`);
