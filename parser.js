@@ -1,6 +1,8 @@
 const fs = require('fs-extra');
 const puppeteer = require('puppeteer');
 
+// выбор города (msk, kirov)
+const CITY = 'msk';
 
 // чтобы логи красивые были
 function logCategoryHeader(categoryUrl) {
@@ -35,23 +37,28 @@ function getCategoryType(url) {
 
 // парсинг категорий с главной страницы
 async function getCategories(page) {
-    await page.goto('https://djari.ru/kirov', { waitUntil: 'networkidle2' });
+    console.log(`https://djari.ru/${CITY}`)
+    await page.goto(`https://djari.ru/${CITY}`, {waitUntil: 'load'});
+    
 
     console.log('Собираем категории с главной страницы...');
+    await page.waitForSelector('a.filter-category__item', { timeout: 15000 });
 
-    const categoryUrls = await page.evaluate(() => {
+    const categoryUrls = await page.evaluate((CITY) => {
         const links = [];
         const anchors = document.querySelectorAll('a.filter-category__item');
 
         anchors.forEach(a => {
             const href = a.getAttribute('href');
-            if (href && href.startsWith('/kirov/') && !href.includes("popular")) {
-                links.push('https://djari.ru' + href);
+
+            // исключаем катеорию popular, тк там очевидно повторы
+            if (href && href.startsWith(`/${CITY}/`) && !href.includes("popular")) {
+                links.push(`https://djari.ru${href}`);
             }
         });
 
         return links;
-    });
+    }, CITY);
 
     console.log(`Найдено категорий: ${categoryUrls.length}`);
     console.log(categoryUrls.join('\n'));
@@ -86,12 +93,22 @@ async function parseProductsFromPage(page) {
     });
 }
 
-(async () => {
-    const browser = await puppeteer.launch({ headless: true });
-    const page = await browser.newPage();
-    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64)');
+async function main() {
+    const browser = await puppeteer.launch({
+        headless: true,
+        args: [
+            '--disable-cache',
+            '--disable-application-cache',
+            '--disable-offline-load-stale-cache',
+        ]
+    });
+    browser.deleteCookie()
 
-    categories = await getCategories(page);
+    const page = await browser.newPage();
+
+    await page.setUserAgent('Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/136.0.0.0 Safari/537.36');
+
+    const categories = await getCategories(page);
 
     const seenNames = new Set();
     let allProducts = [];
@@ -111,16 +128,15 @@ async function parseProductsFromPage(page) {
             for (const product of products) {
                 const baseName = product.name;
 
-                    const newName = `${baseName} (${categoryType})`;
+                const newName = `${baseName} (${categoryType})`;
 
-                    if (seenNames.has(baseName) && !seenNames.has(newName)) {
-                        seenNames.add(newName);
-                        allProducts.push({ name: newName, price: product.price });
-                    } else if (!seenNames.has(baseName)) {
-                        seenNames.add(baseName);
-                        allProducts.push(product);
-                    }
-                
+                if (seenNames.has(baseName) && !seenNames.has(newName)) {
+                    seenNames.add(newName);
+                    allProducts.push({ name: newName, price: product.price });
+                } else if (!seenNames.has(baseName)) {
+                    seenNames.add(baseName);
+                    allProducts.push(product);
+                }
             }
 
             console.log(`Найдено товаров на этой странице: ${products.length}`);
@@ -136,4 +152,6 @@ async function parseProductsFromPage(page) {
     console.log('Результат сохранён в файл products.json');
 
     await browser.close();
-})();
+}
+
+main();
